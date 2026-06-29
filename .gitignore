@@ -1,0 +1,19 @@
+# Source data files — never commit raw exports to the repo
+*.xls
+*.xlsx
+*MyCustomers*
+*activity_report*
+*Report_4*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local config
+.env
+*.local

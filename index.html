@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-Frame-Options" content="ALLOWALL">
+<meta http-equiv="Content-Security-Policy" content="frame-ancestors *;">
+<title>Harvard Media — Sales Dashboard V1</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="page">
+
+<div class="page-hdr">
+  <div>
+    <div class="page-title">Harvard Media — Sales Dashboard</div>
+    <div class="page-sub" id="hdr-sub">Loading...</div>
+  </div>
+  <div style="text-align:right;">
+    <span class="data-badge">V1 — Real Data</span>
+    <div class="updated" id="hdr-updated"></div>
+  </div>
+</div>
+
+<div class="sec-label">Filters</div>
+<div class="filter-bar">
+  <div class="fg"><label>Office</label>
+    <select id="f-office" onchange="filterChanged()">
+      <option value="all">All offices</option>
+    </select>
+  </div>
+  <div class="fg"><label>Salesperson</label>
+    <select id="f-rep" onchange="filterChanged()"><option value="all">All reps</option></select>
+  </div>
+  <div class="fsep"></div>
+  <div class="fg"><label>Sort leaderboard by</label>
+    <select id="f-sort" onchange="filterChanged()">
+      <option value="ytd_revenue">YTD Revenue</option>
+      <option value="mar_closed_total">Period Closed $</option>
+      <option value="mar_close_rate">Period Close Rate</option>
+      <option value="mar_asks">Period # Asks</option>
+      <option value="total_accounts">Total Accounts</option>
+      <option value="active_accounts">Active Accounts</option>
+    </select>
+  </div>
+</div>
+
+<div class="sec-label" id="rev-label">Revenue — YTD</div>
+<div class="grid" id="rev-grid">
+  <div class="kpi" id="kpi-ytd" onclick="openDrawer('rev-grid','d-ytd','kpi-ytd')"><div class="kpi-top"><span class="kpi-lbl">Total YTD revenue</span><span class="kpi-arrow" id="arr-ytd">▼</span></div><div class="kpi-val pos" id="v-ytd">—</div><div class="kpi-sub" id="s-ytd"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-vsly" onclick="openDrawer('rev-grid','d-vsly','kpi-vsly')"><div class="kpi-top"><span class="kpi-lbl">vs same period last year</span><span class="kpi-arrow" id="arr-vsly">▼</span></div><div class="kpi-val" id="v-vsly">—</div><div class="kpi-sub" id="s-vsly"></div><div class="kpi-hint">Click to expand by office</div></div>
+  <div class="kpi" id="kpi-topoffice" onclick="openDrawer('rev-grid','d-topoffice','kpi-topoffice')"><div class="kpi-top"><span class="kpi-lbl">Revenue by office</span><span class="kpi-arrow" id="arr-topoffice">▼</span></div><div class="kpi-val" id="v-topoffice">—</div><div class="kpi-sub" id="s-topoffice"></div><div class="kpi-hint">Click to expand all offices</div></div>
+  <div class="drawer" id="d-ytd"></div>
+  <div class="drawer" id="d-vsly"></div>
+  <div class="drawer" id="d-topoffice"></div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span class="card-title" style="margin-bottom:0;">Monthly revenue — this year vs prior year</span>
+      <span class="legend-row" style="margin-bottom:0;"><span><span class="leg-sq" style="background:#185FA5;"></span>FY2026</span><span><span class="leg-sq" style="background:#B5D4F4;"></span>FY2025</span></span>
+    </div>
+    <div class="month-chart" id="monthly-chart"></div>
+    <div style="display:flex;gap:3px;margin-top:3px;" id="monthly-labels"></div>
+  </div>
+  <div class="card"><div class="card-title">Revenue by office — YTD</div><div id="office-bars"></div></div>
+</div>
+
+<div class="sec-label" id="crm-label">CRM account hygiene</div>
+<div class="grid" id="crm-grid">
+  <div class="kpi" id="kpi-assigned" onclick="openDrawer('crm-grid','d-assigned','kpi-assigned')"><div class="kpi-top"><span class="kpi-lbl">Total assigned accounts</span><span class="kpi-arrow" id="arr-assigned">▼</span></div><div class="kpi-val" id="v-assigned">—</div><div class="kpi-sub" id="s-assigned"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-active" onclick="openDrawer('crm-grid','d-active','kpi-active')"><div class="kpi-top"><span class="kpi-lbl">Active accounts</span><span class="kpi-arrow" id="arr-active">▼</span></div><div class="kpi-val pos" id="v-active">—</div><div class="kpi-sub" id="s-active"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-inactive" onclick="openDrawer('crm-grid','d-inactive','kpi-inactive')"><div class="kpi-top"><span class="kpi-lbl">Inactive accounts</span><span class="kpi-arrow" id="arr-inactive">▼</span></div><div class="kpi-val dn" id="v-inactive">—</div><div class="kpi-sub" id="s-inactive"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-neverpitched" onclick="openDrawer('crm-grid','d-neverpitched','kpi-neverpitched')"><div class="kpi-top"><span class="kpi-lbl">Never pitched</span><span class="kpi-arrow" id="arr-neverpitched">▼</span></div><div class="kpi-val warn" id="v-neverpitched">—</div><div class="kpi-sub" id="s-neverpitched"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-zeroact" onclick="openDrawer('crm-grid','d-zeroact','kpi-zeroact')"><div class="kpi-top"><span class="kpi-lbl">Zero activity</span><span class="kpi-arrow" id="arr-zeroact">▼</span></div><div class="kpi-val dn" id="v-zeroact">—</div><div class="kpi-sub" id="s-zeroact"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="drawer" id="d-assigned"></div>
+  <div class="drawer" id="d-active"></div>
+  <div class="drawer" id="d-inactive"></div>
+  <div class="drawer" id="d-neverpitched"></div>
+  <div class="drawer" id="d-zeroact"></div>
+</div>
+
+<div class="sec-label" id="ask-label">Asks &amp; activity</div>
+<div class="grid" id="ask-grid">
+  <div class="kpi" id="kpi-asks" onclick="openDrawer('ask-grid','d-asks','kpi-asks')"><div class="kpi-top"><span class="kpi-lbl">Total asks created</span><span class="kpi-arrow" id="arr-asks">▼</span></div><div class="kpi-val" id="v-asks">—</div><div class="kpi-sub" id="s-asks"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-closed" onclick="openDrawer('ask-grid','d-closed','kpi-closed')"><div class="kpi-top"><span class="kpi-lbl">Total closed</span><span class="kpi-arrow" id="arr-closed">▼</span></div><div class="kpi-val pos" id="v-closed">—</div><div class="kpi-sub" id="s-closed"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-cr" onclick="openDrawer('ask-grid','d-cr','kpi-cr')"><div class="kpi-top"><span class="kpi-lbl">Close rate</span><span class="kpi-arrow" id="arr-cr">▼</span></div><div class="kpi-val" id="v-cr">—</div><div class="kpi-sub" id="s-cr"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-avgask" onclick="openDrawer('ask-grid','d-avgask','kpi-avgask')"><div class="kpi-top"><span class="kpi-lbl">Avg ask size</span><span class="kpi-arrow" id="arr-avgask">▼</span></div><div class="kpi-val" id="v-avgask">—</div><div class="kpi-sub" id="s-avgask"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-activities" onclick="openDrawer('ask-grid','d-activities','kpi-activities')"><div class="kpi-top"><span class="kpi-lbl">Total activities</span><span class="kpi-arrow" id="arr-activities">▼</span></div><div class="kpi-val" id="v-activities">—</div><div class="kpi-sub" id="s-activities"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="kpi" id="kpi-cna" onclick="openDrawer('ask-grid','d-cna','kpi-cna')"><div class="kpi-top"><span class="kpi-lbl">CNAs logged</span><span class="kpi-arrow" id="arr-cna">▼</span></div><div class="kpi-val warn" id="v-cna">—</div><div class="kpi-sub" id="s-cna"></div><div class="kpi-hint">Click to expand by rep</div></div>
+  <div class="drawer" id="d-asks"></div>
+  <div class="drawer" id="d-closed"></div>
+  <div class="drawer" id="d-cr"></div>
+  <div class="drawer" id="d-avgask"></div>
+  <div class="drawer" id="d-activities"></div>
+  <div class="drawer" id="d-cna"></div>
+</div>
+
+<div class="sec-label">Leaderboard</div>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <span class="card-title" style="margin-bottom:0;" id="lb-title">All reps</span>
+  </div>
+  <div id="lb-bars"></div>
+</div>
+
+<div class="two-col">
+  <div class="card"><div class="card-title">Activity breakdown</div><div id="act-breakdown"></div></div>
+  <div class="card">
+    <span class="card-title">Close rate by rep</span>
+    <div style="margin-bottom:8px;">
+      <button class="ptab active" onclick="setCRView('top',this)">Top 10</button>
+      <button class="ptab" onclick="setCRView('all',this)">All reps</button>
+    </div>
+    <div id="cr-bars"></div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card"><div class="card-title">By station — YTD</div><div id="station-bars"></div></div>
+  <div class="card"><div class="card-title">By revenue type — YTD</div><div id="revtype-bars"></div></div>
+</div>
+
+<div class="sec-label">Coaching insights</div>
+<div class="coach-card">
+  <div class="coach-hdr">
+    <span style="font-size:13px;font-weight:500;">What the data is telling us</span>
+    <span class="coach-bdg" id="coach-badge">—</span>
+  </div>
+  <div class="coach-items" id="coach-items"></div>
+</div>
+
+<div class="note" id="data-note"></div>
+
+</div>
+
+<script>
+// Load data then initialise dashboard
+fetch('data/dashboard_data.json')
+  .then(r => r.json())
+  .then(data => {
+    window.D = data;
+    initDashboard();
+  })
+  .catch(err => {
+    document.querySelector('.page').innerHTML =
+      '<div style="padding:40px;text-align:center;color:#A32D2D;">' +
+      '<h2>Could not load dashboard data</h2>' +
+      '<p style="margin-top:8px;color:#5f5e5a;">Make sure dashboard_data.json is present in the /data folder.</p>' +
+      '<p style="margin-top:4px;font-size:12px;color:#888780;">Error: ' + err.message + '</p>' +
+      '</div>';
+  });
+</script>
+<script src="assets/dashboard.js"></script>
+</body>
+</html>
