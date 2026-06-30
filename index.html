@@ -22,6 +22,26 @@
 
 <div class="sec-label">Filters</div>
 <div class="filter-bar">
+  <div class="fg"><label>Date range</label>
+    <select id="f-daterange" onchange="dateRangeChanged()">
+      <option value="all">All time</option>
+      <option value="today">Today</option>
+      <option value="this_week">This Week</option>
+      <option value="last_week">Last Week</option>
+      <option value="this_month">This Month</option>
+      <option value="last_month">Last Month</option>
+      <option value="custom">Custom…</option>
+    </select>
+  </div>
+  <div class="fg" id="custom-range-grp" style="display:none;">
+    <label>Custom range</label>
+    <div class="date-range-inputs">
+      <input type="date" id="f-date-start" onchange="customRangeChanged()" aria-label="Start date">
+      <span class="date-range-sep">to</span>
+      <input type="date" id="f-date-end" onchange="customRangeChanged()" aria-label="End date">
+    </div>
+  </div>
+  <div class="fsep"></div>
   <div class="fg"><label>Office</label>
     <select id="f-office" onchange="filterChanged()">
       <option value="all">All offices</option>
@@ -42,6 +62,7 @@
     </select>
   </div>
 </div>
+<div class="date-range-note" id="date-range-note"></div>
 
 <div class="sec-label" id="rev-label">Revenue — YTD</div>
 <div class="grid" id="rev-grid">

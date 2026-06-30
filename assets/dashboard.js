@@ -48,7 +48,7 @@ function getFilteredReps() {
   let reps = window.D.reps;
   if (office !== 'all') reps = reps.filter(r => r.office === office);
   if (rep !== 'all') reps = reps.filter(r => r.rep === rep);
-  return reps;
+  return filterRepsByDateRange(reps);
 }
 
 function filterChanged() {
@@ -58,6 +58,96 @@ function filterChanged() {
   filtered.forEach(r => { const o = document.createElement('option'); o.value = r.rep; o.textContent = r.rep; repSel.appendChild(o); });
   repSel.value = filtered.find(r => r.rep === cur) ? cur : 'all';
   render();
+}
+
+/* ============================================================
+   Date range selector
+   Fiscal year runs Sept 1 – Aug 31.
+
+   IMPORTANT: the current dashboard_data.json is pre-aggregated — monthly
+   team revenue, per-rep activity for a single fixed month (mar_*), and a
+   point-in-time account-hygiene snapshot. There are no per-record dates,
+   so a selected range cannot re-slice the data yet. The UI, range math,
+   and pipeline wiring are all in place; filterRepsByDateRange() below is
+   the single hook to implement once dated / transaction-level data (the
+   database layer) is available.
+   ============================================================ */
+
+const WEEK_START = 0; // 0 = Sunday, 1 = Monday — set to the team's week convention.
+window.activeDateRange = { preset: 'all', start: null, end: null };
+
+const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const endOfDay = d => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfWeek = d => { const x = startOfDay(d); return addDays(x, -((x.getDay() - WEEK_START + 7) % 7)); };
+
+// Sep 1 of the fiscal year containing `ref`. Helper for future fiscal-period
+// presets (e.g. fiscal YTD); not used by the current preset list.
+function fiscalYearStart(ref) {
+  const y = ref.getMonth() >= 8 ? ref.getFullYear() : ref.getFullYear() - 1;
+  return new Date(y, 8, 1);
+}
+
+function computeDateRange(preset, ref) {
+  const today = startOfDay(ref || new Date());
+  switch (preset) {
+    case 'today':      return { start: startOfDay(today), end: endOfDay(today) };
+    case 'this_week':  { const s = startOfWeek(today); return { start: s, end: endOfDay(addDays(s, 6)) }; }
+    case 'last_week':  { const s = addDays(startOfWeek(today), -7); return { start: s, end: endOfDay(addDays(s, 6)) }; }
+    case 'this_month': { const s = new Date(today.getFullYear(), today.getMonth(), 1); return { start: startOfDay(s), end: endOfDay(new Date(today.getFullYear(), today.getMonth() + 1, 0)) }; }
+    case 'last_month': { const s = new Date(today.getFullYear(), today.getMonth() - 1, 1); return { start: startOfDay(s), end: endOfDay(new Date(today.getFullYear(), today.getMonth(), 0)) }; }
+    default:           return { start: null, end: null }; // 'all'
+  }
+}
+
+const fmtDateShort = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const toInputDate = d => { const x = startOfDay(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+
+function dateRangeChanged() {
+  const preset = $('f-daterange').value, customGrp = $('custom-range-grp');
+  if (preset === 'custom') {
+    customGrp.style.display = '';
+    if (!$('f-date-start').value || !$('f-date-end').value) { // seed with current month
+      const { start, end } = computeDateRange('this_month');
+      $('f-date-start').value = toInputDate(start);
+      $('f-date-end').value = toInputDate(end);
+    }
+    customRangeChanged();
+    return;
+  }
+  customGrp.style.display = 'none';
+  const { start, end } = computeDateRange(preset);
+  window.activeDateRange = { preset, start, end };
+  updateDateRangeNote();
+  render();
+}
+
+function customRangeChanged() {
+  const sv = $('f-date-start').value, ev = $('f-date-end').value;
+  if (!sv || !ev) { updateDateRangeNote(); return; }
+  let start = startOfDay(new Date(sv + 'T00:00:00')), end = endOfDay(new Date(ev + 'T00:00:00'));
+  if (end < start) { const t = start; start = startOfDay(end); end = endOfDay(t); } // swap if reversed
+  window.activeDateRange = { preset: 'custom', start, end };
+  updateDateRangeNote();
+  render();
+}
+
+function updateDateRangeNote() {
+  const el = $('date-range-note'); if (!el) return;
+  const r = window.activeDateRange;
+  if (!r || !r.start || !r.end) { el.innerHTML = ''; return; }
+  el.innerHTML = `Selected range: <strong>${fmtDateShort(r.start)} – ${fmtDateShort(r.end)}</strong> · ` +
+    `<span class="dr-hint" title="The current data is pre-aggregated with no per-record dates; date filtering activates once dated data (the database layer) is available.">date filtering activates with the data backend</span>`;
+}
+
+// Date-range filter hook — INERT today (no per-record dates in the data).
+// This is the single place to slice rep records once dated/transaction-level
+// data exists: filter or re-aggregate each rep's records to window.activeDateRange.
+function filterRepsByDateRange(reps) {
+  // const { start, end } = window.activeDateRange || {};
+  // if (!start || !end) return reps;
+  // return reps.map(r => recomputeForRange(r, start, end));
+  return reps;
 }
 
 function render() {
