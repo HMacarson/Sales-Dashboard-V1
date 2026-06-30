@@ -40,6 +40,16 @@ Sales-Dashboard-V1/
 
 ---
 
+## Deployment
+
+Hosted as a standalone static site on **Vercel**, deployed from the GitHub repo.
+Every push to `main` triggers an automatic production deploy — no build step
+(the dashboard is plain HTML/CSS/JS that loads `data/dashboard_data.json` at
+runtime). To update the live dashboard, commit a new `data/dashboard_data.json`
+to `main` and Vercel redeploys within seconds.
+
+---
+
 ## Data definitions
 
 - **Active accounts:** Pitched within the last 6 weeks (Rumple definition)
