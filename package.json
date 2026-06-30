@@ -1,0 +1,14 @@
+{
+  "name": "sales-dashboard-v1",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Harvard Media — Sales Dashboard (static front end, database to follow)",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel deploy",
+    "deploy:prod": "vercel deploy --prod"
+  },
+  "devDependencies": {
+    "vercel": "^54.18.6"
+  }
+}

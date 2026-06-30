@@ -17,3 +17,7 @@ Thumbs.db
 # Local config
 .env
 *.local
+
+# Node / Vercel
+node_modules/
+.vercel
