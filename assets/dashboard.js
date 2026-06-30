@@ -315,8 +315,80 @@ document.addEventListener('mousedown', e => { if (!e.target.closest('.combo')) c
 function render() {
   const reps = getFilteredReps(), sortKey = $('f-sort').value;
   closeAllDrawers();
-  updateRevKPIs(reps); updateCRMKPIs(reps); updateAskKPIs(reps);
+  updateRevKPIs(reps); updateCRMKPIs(reps); updateAskKPIs(reps); updateMixKPIs();
   renderLeaderboard(reps, sortKey); renderActBreakdown(reps); renderCRBars(); renderCoaching(reps);
+}
+
+/* ============================================================
+   Revenue-mix cards (account-level)
+   These need per-account data with a revenue-type breakdown, which the
+   current pre-aggregated dataset does not have. They are INERT until the
+   data source provides:
+     D.accounts = [{ name, office, rep, yearly_revenue,
+                     stations: [..], revenue_types: [{ type, revenue }] }, ...]
+   getFilteredAccounts() and the two drawer defs (d-ldonly, d-multi) are the
+   single hooks; cards show "—" until D.accounts exists.
+   ============================================================ */
+
+// Accounts filtered by the current Office / Salesperson selections.
+function getFilteredAccounts() {
+  const D = window.D;
+  if (!D || !Array.isArray(D.accounts)) return [];
+  const office = $('f-office').value, rep = $('f-rep').value;
+  return D.accounts
+    .filter(a => office === 'all' || a.office === office)
+    .filter(a => rep === 'all' || a.rep === rep);
+}
+
+const acctTypes = a => [...new Set((a.revenue_types || []).map(t => t.type))];
+const isLocalDirectOnly = a => { const t = acctTypes(a); return t.length === 1 && t[0] === 'LOCAL DIRECT'; };
+const isMultiType = a => acctTypes(a).length > 1;
+const acctStations = a => (a.stations || (a.station ? [a.station] : [])).join(', ') || '—';
+const acctTotal = a => (a.revenue_types || []).reduce((s, t) => s + (t.revenue || 0), 0) || (a.yearly_revenue || 0);
+
+function updateMixKPIs() {
+  const acc = getFilteredAccounts();
+  if (!acc.length) { // no account-level data yet
+    $('v-ldonly').textContent = '—'; $('s-ldonly').textContent = 'Pending account data';
+    $('v-multi').textContent = '—'; $('s-multi').textContent = 'Pending account data';
+    return;
+  }
+  const paying = acc.filter(a => acctTotal(a) > 0 || acctTypes(a).length > 0);
+  const ld = acc.filter(isLocalDirectOnly), multi = acc.filter(isMultiType);
+  const pct = n => paying.length ? Math.round(n / paying.length * 100) : 0;
+  $('v-ldonly').textContent = ld.length.toLocaleString();
+  $('s-ldonly').textContent = pct(ld.length) + '% of paying customers';
+  $('v-multi').textContent = multi.length.toLocaleString();
+  $('s-multi').textContent = pct(multi.length) + '% of paying customers';
+}
+
+/* ============================================================
+   Export — works on the current (filtered) data, no backend needed.
+   PDF: print-to-PDF via the browser (print stylesheet hides controls).
+   Excel: CSV download (UTF-8 BOM so Excel opens it cleanly).
+   ============================================================ */
+
+function exportPDF() { window.print(); }
+
+function exportExcel() {
+  const reps = getFilteredReps();
+  const cols = ['Rep', 'Office', 'Total Accounts', 'Active', 'Inactive', 'Never Pitched', 'Zero Activity',
+    'YTD Revenue', 'Period Asks', 'Period Closed $', 'Period Closed #', 'Close Rate %', 'Avg Ask', 'Activities'];
+  const rows = reps.map(r => [r.rep, r.office || '', r.total_accounts, r.active_accounts, r.inactive_accounts,
+    r.never_pitched, r.zero_activity, r.ytd_revenue, r.mar_asks, r.mar_closed_total, r.mar_closed_count,
+    r.mar_close_rate, r.mar_avg_ask, r.mar_activities]);
+  downloadCSV('sales-dashboard-export.csv', cols, rows);
+}
+
+function downloadCSV(filename, cols, rows) {
+  const esc = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = [cols, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function updateRevKPIs(reps) {
@@ -482,6 +554,8 @@ const drawerDefs = {
   'd-avgask': { title: 'Avg ask size by rep', cols: ['Rep', 'Office', 'Avg Ask', 'Total Asked', '# Asks'], widths: ['28%', '18%', '16%', '18%', '12%'], rows: () => getFilteredReps().filter(r => r.mar_asks > 0).map(r => [r.rep, r.office || '—', fmtF(r.mar_avg_ask), fmtF(r.mar_asked_total), r.mar_asks]), sortCol: 2, sortDir: -1 },
   'd-activities': { title: 'Activities by rep', cols: ['Rep', 'Office', 'Total', 'Notes', 'Communications', 'Appointments'], widths: ['24%', '16%', '10%', '10%', '18%', '14%'], rows: () => getFilteredReps().map(r => [r.rep, r.office || '—', r.mar_activities, r.mar_notes, r.mar_communications, r.mar_appointments]), sortCol: 2, sortDir: -1 },
   'd-cna': { title: 'CNAs logged', cols: ['Rep', 'Office', 'CNAs', '# Asks', 'Note'], widths: ['26%', '18%', '12%', '12%', '28%'], rows: () => getFilteredReps().map(r => [r.rep, r.office || '—', r.mar_cna, r.mar_asks, r.mar_cna === 0 && r.mar_asks > 0 ? 'No CNA despite ' + r.mar_asks + ' asks' : r.mar_cna > 0 ? 'CNA logged ✓' : 'No asks']), sortCol: 2, sortDir: -1 },
+  'd-ldonly': { title: 'Local Direct–only accounts', cols: ['Account', 'Office', 'Rep', 'Station', 'Yearly Revenue'], widths: ['28%', '15%', '19%', '22%', '16%'], rows: () => getFilteredAccounts().filter(isLocalDirectOnly).map(a => [a.name, a.office || '—', a.rep || '—', acctStations(a), fmtF(acctTotal(a))]), sortCol: 4, sortDir: -1 },
+  'd-multi': { title: 'Accounts with multiple revenue types', cols: ['Account', 'Office', 'Rep', 'Revenue types (by revenue)', 'Total'], widths: ['22%', '13%', '16%', '33%', '16%'], rows: () => getFilteredAccounts().filter(isMultiType).map(a => { const ts = (a.revenue_types || []).slice().sort((x, y) => (y.revenue || 0) - (x.revenue || 0)); return [a.name, a.office || '—', a.rep || '—', ts.map(t => `${t.type}: ${fmtF(t.revenue || 0)}`).join(' · '), fmtF(acctTotal(a))]; }), sortCol: 4, sortDir: -1 },
 };
 
 function openDrawer(gid, did, kid) {

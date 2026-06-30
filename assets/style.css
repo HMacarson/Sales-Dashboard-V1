@@ -94,3 +94,16 @@ select:focus{outline:none;border-color:#185FA5;}
 .note{margin-top:14px;padding:10px 14px;background:#f1efe8;border-radius:8px;font-size:11px;color:#5f5e5a;line-height:1.5;}
 .ptab{font-size:12px;padding:3px 10px;border-radius:8px;border:.5px solid #c0beb5;cursor:pointer;color:#5f5e5a;background:transparent;margin-right:4px;}
 .ptab.active{background:#E6F1FB;color:#0C447C;border-color:transparent;}
+.export-btns{display:flex;gap:6px;}
+.export-btns .ptab{margin-right:0;background:#fff;}
+.export-btns .ptab:hover{border-color:#185FA5;color:#185FA5;}
+@media print{
+  body{background:#fff;}
+  .filter-bar,.date-range-note,.kpi-hint,.kpi-arrow,.ptab,.export-btns,.drawer-search{display:none !important;}
+  .page{max-width:none;padding:0;}
+  .page-hdr{background:#fff;color:#1a1a1a;border:.5px solid #c0beb5;}
+  .page-sub,.updated{color:#5f5e5a;}
+  .data-badge{background:#e8e6e0;color:#1a1a1a;}
+  .card,.kpi,.coach-card,.bar-row,.ci{break-inside:avoid;}
+  .sec-label{padding-top:.6rem;}
+}

@@ -77,6 +77,13 @@
       <option value="active_accounts">Active Accounts</option>
     </select>
   </div>
+  <div class="fg" style="margin-left:auto;">
+    <label>Export</label>
+    <div class="export-btns">
+      <button type="button" class="ptab" onclick="exportPDF()">PDF</button>
+      <button type="button" class="ptab" onclick="exportExcel()">Excel</button>
+    </div>
+  </div>
 </div>
 <div class="date-range-note" id="date-range-note"></div>
 
@@ -100,6 +107,14 @@
     <div style="display:flex;gap:3px;margin-top:3px;" id="monthly-labels"></div>
   </div>
   <div class="card"><div class="card-title">Revenue by office — YTD</div><div id="office-bars"></div></div>
+</div>
+
+<div class="sec-label">Revenue mix</div>
+<div class="grid" id="mix-grid">
+  <div class="kpi" id="kpi-ldonly" onclick="openDrawer('mix-grid','d-ldonly','kpi-ldonly')"><div class="kpi-top"><span class="kpi-lbl">Local Direct–only accounts</span><span class="kpi-arrow" id="arr-ldonly">▼</span></div><div class="kpi-val" id="v-ldonly">—</div><div class="kpi-sub" id="s-ldonly"></div><div class="kpi-hint">Click to expand by account</div></div>
+  <div class="kpi" id="kpi-multi" onclick="openDrawer('mix-grid','d-multi','kpi-multi')"><div class="kpi-top"><span class="kpi-lbl">Accounts with multiple revenue types</span><span class="kpi-arrow" id="arr-multi">▼</span></div><div class="kpi-val" id="v-multi">—</div><div class="kpi-sub" id="s-multi"></div><div class="kpi-hint">Click to expand by account</div></div>
+  <div class="drawer" id="d-ldonly"></div>
+  <div class="drawer" id="d-multi"></div>
 </div>
 
 <div class="sec-label" id="crm-label">CRM account hygiene</div>
