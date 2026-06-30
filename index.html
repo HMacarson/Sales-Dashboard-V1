@@ -50,6 +50,22 @@
   <div class="fg"><label>Salesperson</label>
     <select id="f-rep" onchange="filterChanged()"><option value="all">All reps</option></select>
   </div>
+  <div class="fg"><label>Business</label>
+    <div class="combo" id="combo-business">
+      <input type="text" class="combo-input" id="f-business" placeholder="All businesses" autocomplete="off"
+             onfocus="comboOpen('business')" oninput="comboFilter('business')" onkeydown="comboKey(event,'business')">
+      <div class="combo-panel" id="combo-panel-business"></div>
+    </div>
+  </div>
+  <div class="fg"><label>Revenue type</label>
+    <select id="f-revtype" onchange="segmentChanged()"><option value="all">All revenue types</option></select>
+  </div>
+  <div class="fg"><label>Station</label>
+    <select id="f-station" onchange="segmentChanged()"><option value="all">All stations</option></select>
+  </div>
+  <div class="fg"><label>Program</label>
+    <select id="f-program" onchange="segmentChanged()"><option value="all">All programs</option></select>
+  </div>
   <div class="fsep"></div>
   <div class="fg"><label>Sort leaderboard by</label>
     <select id="f-sort" onchange="filterChanged()">

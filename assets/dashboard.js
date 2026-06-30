@@ -29,6 +29,9 @@ function initDashboard() {
     document.getElementById('f-rep').appendChild(o);
   });
 
+  // Populate Revenue type / Station / Program filters + set up the Business combobox
+  initSegmentFilters(data);
+
   renderMonthlyChart();
   renderOfficeBars();
   renderStationBars();
@@ -48,7 +51,9 @@ function getFilteredReps() {
   let reps = window.D.reps;
   if (office !== 'all') reps = reps.filter(r => r.office === office);
   if (rep !== 'all') reps = reps.filter(r => r.rep === rep);
-  return filterRepsByDateRange(reps);
+  reps = filterRepsByDateRange(reps);
+  reps = filterRepsBySegments(reps);
+  return reps;
 }
 
 function filterChanged() {
@@ -57,6 +62,8 @@ function filterChanged() {
   const filtered = office === 'all' ? window.allReps : window.allReps.filter(r => r.office === office);
   filtered.forEach(r => { const o = document.createElement('option'); o.value = r.rep; o.textContent = r.rep; repSel.appendChild(o); });
   repSel.value = filtered.find(r => r.rep === cur) ? cur : 'all';
+  cascadeBusiness();
+  updateFilterNote();
   render();
 }
 
@@ -118,26 +125,31 @@ function dateRangeChanged() {
   customGrp.style.display = 'none';
   const { start, end } = computeDateRange(preset);
   window.activeDateRange = { preset, start, end };
-  updateDateRangeNote();
+  updateFilterNote();
   render();
 }
 
 function customRangeChanged() {
   const sv = $('f-date-start').value, ev = $('f-date-end').value;
-  if (!sv || !ev) { updateDateRangeNote(); return; }
+  if (!sv || !ev) { updateFilterNote(); return; }
   let start = startOfDay(new Date(sv + 'T00:00:00')), end = endOfDay(new Date(ev + 'T00:00:00'));
   if (end < start) { const t = start; start = startOfDay(end); end = endOfDay(t); } // swap if reversed
   window.activeDateRange = { preset: 'custom', start, end };
-  updateDateRangeNote();
+  updateFilterNote();
   render();
 }
 
-function updateDateRangeNote() {
+const SEG_LABEL = { business: 'Business', revtype: 'Revenue type', station: 'Station', program: 'Program' };
+function updateFilterNote() {
   const el = $('date-range-note'); if (!el) return;
+  const parts = [];
   const r = window.activeDateRange;
-  if (!r || !r.start || !r.end) { el.innerHTML = ''; return; }
-  el.innerHTML = `Selected range: <strong>${fmtDateShort(r.start)} – ${fmtDateShort(r.end)}</strong> · ` +
-    `<span class="dr-hint" title="The current data is pre-aggregated with no per-record dates; date filtering activates once dated data (the database layer) is available.">date filtering activates with the data backend</span>`;
+  if (r && r.start && r.end) parts.push(`Dates: <strong>${fmtDateShort(r.start)} – ${fmtDateShort(r.end)}</strong>`);
+  const s = activeSegments();
+  Object.keys(SEG_LABEL).forEach(k => { if (s[k] && s[k] !== 'all') parts.push(`${SEG_LABEL[k]}: <strong>${escapeHtml(s[k])}</strong>`); });
+  el.innerHTML = parts.length
+    ? parts.join(' &nbsp;·&nbsp; ') + ` &nbsp;·&nbsp; <span class="dr-hint" title="The current data is pre-aggregated; these filters activate once dated/segmented data (the database layer) is available.">filters activate with the data backend</span>`
+    : '';
 }
 
 // Date-range filter hook — INERT today (no per-record dates in the data).
@@ -149,6 +161,156 @@ function filterRepsByDateRange(reps) {
   // return reps.map(r => recomputeForRange(r, start, end));
   return reps;
 }
+
+/* ============================================================
+   Segment filters: Business, Revenue type, Station, Program
+   - Business is a searchable combobox (type-to-filter, A–Z) that CASCADES
+     on the Office/Salesperson selections.
+   - Program maps to the source field "Inventory Type".
+
+   Like the date range, these are INERT against the current pre-aggregated
+   data: revenue_by_type / revenue_by_station are team-level totals and rep
+   records carry no business/station/program breakdown. Revenue type and
+   Station dropdowns are populated from the available aggregates so the UI is
+   usable now; Business and Program stay empty until the data source provides
+   them. filterRepsBySegments() is the single hook to implement once
+   segmented/transaction-level data (the database layer) is available.
+   ============================================================ */
+
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const combo = { business: { value: 'all' } };
+
+function initSegmentFilters(D) {
+  fillSelect('f-revtype', (D.revenue_by_type || []).map(t => t.type));
+  fillSelect('f-station', (D.revenue_by_station || []).map(s => s.station));
+  fillSelect('f-program', programOptions(D));
+  setupCombo('business');
+}
+
+function fillSelect(id, values) {
+  const el = $(id); if (!el) return;
+  [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)).forEach(v => {
+    const o = document.createElement('option'); o.value = v; o.textContent = v; el.appendChild(o);
+  });
+}
+
+// "Program" is called "Inventory Type" in the source data. Not present in the
+// current pre-aggregated dataset — populate from D.inventory_types / D.programs
+// when the data source provides it.
+function programOptions(D) {
+  if (Array.isArray(D.inventory_types)) return D.inventory_types;
+  if (Array.isArray(D.programs)) return D.programs;
+  return [];
+}
+
+function activeSegments() {
+  return {
+    business: combo.business.value,
+    revtype: ($('f-revtype') || {}).value || 'all',
+    station: ($('f-station') || {}).value || 'all',
+    program: ($('f-program') || {}).value || 'all',
+  };
+}
+
+// Fired by the Revenue type / Station / Program <select>s.
+function segmentChanged() { updateFilterNote(); render(); }
+
+// Date + segment filter hook — INERT today (rep records carry no business /
+// revenue-type / station / program breakdown). Implement here once segmented
+// data exists: filter or re-aggregate each rep's records to activeSegments().
+function filterRepsBySegments(reps) {
+  // const s = activeSegments();
+  // return reps.filter(/* record matches each non-'all' segment */);
+  return reps;
+}
+
+/* ---- Business combobox (cascades on Office/Salesperson) ---- */
+
+// Options for the Business combobox. Cascades on the current Office/Salesperson.
+// No advertiser/business list in the current dataset, so this is empty until
+// the data source provides D.businesses [{ name, office, rep }, ...].
+function getBusinessOptions() {
+  const D = window.D;
+  if (!D || !Array.isArray(D.businesses)) return [];
+  const office = $('f-office').value, rep = $('f-rep').value;
+  return [...new Set(D.businesses
+    .filter(b => office === 'all' || b.office === office)
+    .filter(b => rep === 'all' || b.rep === rep)
+    .map(b => b.name))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function setupCombo(key) {
+  const panel = $('combo-panel-' + key);
+  if (!panel) return;
+  panel.addEventListener('mousedown', e => {
+    const opt = e.target.closest('.combo-opt'); if (!opt) return;
+    e.preventDefault(); // keep input focus; prevents blur before pick
+    comboPick(key, opt.dataset.val === '__all__' ? 'all' : opt.dataset.val);
+  });
+}
+
+function comboOpen(key) {
+  $('f-' + key).value = ''; // clear so the user can type fresh; placeholder shows
+  renderComboOptions(key, '');
+  $('combo-panel-' + key).classList.add('open');
+}
+
+function comboFilter(key) {
+  renderComboOptions(key, $('f-' + key).value.trim().toLowerCase());
+  $('combo-panel-' + key).classList.add('open');
+}
+
+function renderComboOptions(key, q) {
+  const panel = $('combo-panel-' + key), all = getBusinessOptions();
+  const opts = q ? all.filter(o => o.toLowerCase().includes(q)) : all;
+  let html = `<div class="combo-opt${combo[key].value === 'all' ? ' sel' : ''}" data-val="__all__">All businesses</div>`;
+  if (!all.length) html += `<div class="combo-empty">No business data yet — connect a data source</div>`;
+  else if (!opts.length) html += `<div class="combo-empty">No matches</div>`;
+  else html += opts.map(o => `<div class="combo-opt${combo[key].value === o ? ' sel' : ''}" data-val="${escapeHtml(o)}">${escapeHtml(o)}</div>`).join('');
+  panel.innerHTML = html;
+}
+
+function comboPick(key, val) {
+  combo[key].value = val;
+  $('f-' + key).value = val === 'all' ? '' : val;
+  $('combo-panel-' + key).classList.remove('open');
+  $('f-' + key).blur();
+  updateFilterNote();
+  render();
+}
+
+function comboClose(key) {
+  $('combo-panel-' + key).classList.remove('open');
+  $('f-' + key).value = combo[key].value === 'all' ? '' : combo[key].value; // restore display
+}
+
+function comboKey(e, key) {
+  if (e.key === 'Escape') { comboClose(key); e.target.blur(); return; }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const first = [...$('combo-panel-' + key).querySelectorAll('.combo-opt')].find(o => o.dataset.val !== '__all__');
+    if (e.target.value.trim() && first) comboPick(key, first.dataset.val);
+  }
+}
+
+function closeAllCombos() {
+  Object.keys(combo).forEach(key => {
+    const panel = $('combo-panel-' + key);
+    if (panel && panel.classList.contains('open')) comboClose(key);
+  });
+}
+
+// Reset a business selection that no longer belongs to the current Office/rep.
+function cascadeBusiness() {
+  if (combo.business.value !== 'all' && !getBusinessOptions().includes(combo.business.value)) {
+    combo.business.value = 'all';
+    const bi = $('f-business'); if (bi) bi.value = '';
+  }
+}
+
+// Close any open combo when clicking elsewhere.
+document.addEventListener('mousedown', e => { if (!e.target.closest('.combo')) closeAllCombos(); });
 
 function render() {
   const reps = getFilteredReps(), sortKey = $('f-sort').value;
